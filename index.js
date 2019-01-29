@@ -1,6 +1,7 @@
 const chokidar = require('chokidar');
 const Rsync = require('rsync');
 const debounce = require('debounce');
+const child_process = require('child_process');
 
 const consoleTimestamp = require('./lib/console-timestamp');
 
@@ -43,6 +44,36 @@ const CONFIG = require('./config.json');
             rsync.set(optionKey, CONFIG[project].rsyncOptions[optionKey]);
         }
 
+        const postRemoteCommand = debounce(() => {
+            console.log([CONFIG[project]['to'].split(':')[0]].concat(CONFIG[project]['postRemoteCommand']))
+            // const sshProcess = child_process.spawn('ssh', [CONFIG[project]['to'].split(':')[0]].concat(CONFIG[project]['postRemoteCommand']));
+            const sshProcess = child_process.spawn('lp_ssh', [CONFIG[project]['to'].split(':')[0].split('@')[1]].concat(CONFIG[project]['postRemoteCommand']));
+
+            let stdoutOutput = '';
+            let stderrOutput = '';
+            sshProcess.stdout
+                .on('data', (buf) => stdoutOutput += buf.toString())
+                .on('end', () => consoleTimestamp.log(stdoutOutput));
+
+            sshProcess.stderr
+                .on('data', (buf) => stderrOutput += buf.toString())
+                .on('end', () => consoleTimestamp.error(stderrOutput));
+            
+            sshProcess.on('exit', (code) => {
+                console.log('exit');
+                consoleTimestamp.log(`Remote command ${project} | ${CONFIG[project]['postRemoteCommand'].join(' ')} exited with status code ${code}`);
+
+                if (stdoutOutput) {
+                    consoleTimestamp.log(`Remote command stdout ${project} | ${stdoutOutput}`);
+                }
+
+                if (stderrOutput) {
+                    consoleTimestamp.log(`Remote command stdout ${project} | ${stderrOutput}`);
+                }
+            });
+            
+        }, 1000);
+
         consoleTimestamp.log(`[sync start] ${project}`);
         return new Promise((resolve, reject) => {
             const rsyncProcess = rsync.execute((error, code, command) => {
@@ -59,6 +90,9 @@ const CONFIG = require('./config.json');
 
             rsyncProcess.on('close', () => {
                 synchronizers.delete(rsyncProcess.pid);
+                if (CONFIG[project]['postRemoteCommand']) {
+                    postRemoteCommand();
+                }
             });
 
             synchronizers.set(rsyncProcess.pid, {project, process: rsyncProcess});
