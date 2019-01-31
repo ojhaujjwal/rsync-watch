@@ -6,13 +6,16 @@ Node.js app to watch files and directories then sync them to the remote server u
 
 - Clone repository
 - Execute `npm install`
-- Copy `config.json.example` to `config.json`
-- Edit `config.json`
+- Copy `config-example.js` to `config.js`
+- Edit `config.js`
     - Exclude pattern must be compatible with <https://man.developpez.com/man1/rsync/#L16>
       and <https://github.com/micromatch/micromatch#matching-features> at the same time
 - Execute `npm run sync` to start sync and watch
 
 ## Changelog
+
+### 4.0.0
+- \[Breaking\] JSON config file replaced with JS config file.
 
 ### 3.0.1
 
